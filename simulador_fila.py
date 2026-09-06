@@ -199,23 +199,53 @@ def SAIDA(tempo_evento):
         agenda_evento(tempo_saida, TIPO_SAIDA)
 
 
-# Função PASSAGEM será implementada na próxima etapa
+# Função PASSAGEM: Passagem de cliente entre fila 1 e fila 2
 def PASSAGEM(tempo_evento):
     """
-    Procedimento que simula a passagem de um cliente da fila 1 para fila 2.
-    - Contabiliza o tempo no estado atual de ambas as filas
-    - Remove o cliente da fila 1 (termina atendimento em fila 1)
-    - Tenta adicionar o cliente à fila 2
-    - Se houver servidor livre em fila 2, agenda saída
-    - Se ainda há clientes em fila 1, agenda nova passagem
+    Procedimento que simula a passagem de um cliente da fila 1 para fila 2 (SISTEMA TANDEM).
     
-    Utiliza variáveis de controle da FILA 1 (origem): fila1, servidores1, capacidade1
-    Utiliza variáveis de controle da FILA 2 (destino): fila2, servidores2, capacidade2
+    Este procedimento é uma combinação de:
+    - SAÍDA da fila 1 (termina atendimento em fila 1)
+    - CHEGADA na fila 2 (inicia fila em fila 2)
+    
+    Processo:
+    1. Contabiliza o tempo no estado atual de AMBAS as filas
+    2. Remove cliente de fila 1 (fila1--)
+    3. Se há clientes esperando em fila 1, agenda próxima PASSAGEM (PA)
+    4. Tenta adicionar cliente em fila 2:
+       - Se fila 2 não está cheia, adiciona e verifica servidor livre para agendar SAÍDA (SA)
+       - Se fila 2 está cheia, cliente é perdido
+    
+    Nota: Usa variáveis de controle da FILA 1 quando remove cliente (fila1, servidores1)
+          Usa variáveis de controle da FILA 2 quando adiciona cliente (fila2, servidores2, capacidade2)
     """
     global fila1, fila2, perdas
-    
-    # Implementação na próxima etapa
-    pass
+
+    # Etapa 1: Contabiliza tempo em AMBAS as filas
+    contabiliza_tempo(tempo_evento)
+
+    # Etapa 2: Remove cliente de fila 1 (saída de fila 1)
+    fila1 -= 1
+
+    # Etapa 3: Se há clientes esperando em fila 1, agenda próxima passagem
+    # Condição: fila1 >= servidores1 (há clientes em espera que podem usar servidor)
+    if fila1 >= servidores1:
+        tempo_passagem = tempo_global + tempo_entre(atendimento_min, atendimento_max)
+        agenda_evento(tempo_passagem, TIPO_PASSAGEM)
+
+    # Etapa 4: Tenta adicionar cliente em fila 2 (chegada em fila 2)
+    # Verifica capacidade da FILA 2
+    if fila2 < capacidade2:
+        # Fila 2 não está cheia: adiciona cliente
+        fila2 += 1
+        # Se houver servidor livre em fila 2, agenda saída do sistema
+        # Condição: fila2 <= servidores2
+        if fila2 <= servidores2:
+            tempo_saida = tempo_global + tempo_entre(atendimento_min, atendimento_max)
+            agenda_evento(tempo_saida, TIPO_SAIDA)
+    else:
+        # Fila 2 está cheia: cliente é perdido
+        perdas += 1
 
 
 # ---------------------------------------------------------------------------
@@ -566,57 +596,48 @@ def main():
     WARMUP_RANDOMS = 5000
 
     # =====================================================================
-    # Simulação 1: G/G/1/5 - chegadas [3,5], atendimento [4,5]
+    # SISTEMA TANDEM: Duas filas interligadas em série
+    # Fila 1 (entrada): G/G/2/4 - chegadas [3,5], atendimento [5,6]
+    # Fila 2 (saída):   G/G/3/5 - chegadas de PA, atendimento [2,4]
     # =====================================================================
 
     # --- Execução única (semente padrão) ---
-    print("\n>>> Simulação G/G/1/5 - Execução única <<<\n")
-    resultado1 = executar_simulacao(
-        serv=1, cap=5,
-        ch_min=3.0, ch_max=5.0,
-        at_min=4.0, at_max=5.0,
+    print("\n>>> Simulação TANDEM (G/G/2/4 → G/G/3/5) - Execução única <<<\n")
+    resultado_tandem = executar_simulacao(
+        serv1=2, cap1=4,  # Fila 1: 2 servidores, capacidade 4
+        serv2=3, cap2=5,  # Fila 2: 3 servidores, capacidade 5
+        ch_min=3.0, ch_max=5.0,    # Intervalo de chegadas externas
+        at_min=4.0, at_max=5.0,    # Intervalo de atendimento (ambas filas)
         seed=42, num_randoms=NUM_RANDOMS
     )
-    exibir_resultados("G/G/1/5 (chegadas [3,5], atendimento [4,5])", resultado1)
+    exibir_resultados("FILA 1 (Entrada - G/G/2/4)", resultado_tandem)
+    print("\nFila 1 tem 2 servidores e capacidade 4")
+    print("Fila 2 tem 3 servidores e capacidade 5")
+    print("Intervalo entre chegadas: [3, 5] minutos")
+    print("Intervalo de atendimento: [4, 5] minutos (ambas filas)\n")
 
     # --- Lotes médios (mean batches) com intervalos de confiança ---
     # Reduz o efeito da variabilidade executando múltiplas vezes (30 lotes)
     # com descarte de warm-up para análise estacionária
-    print(">>> Simulação G/G/1/5 - Lotes médios (com warm-up) <<<\n")
-    lotes1 = executar_lotes(
-        serv=1, cap=5,
-        ch_min=3.0, ch_max=5.0,
-        at_min=4.0, at_max=5.0,
+    print(">>> Simulação TANDEM (G/G/2/4 → G/G/3/5) - Lotes médios (com warm-up) <<<\n")
+    lotes_tandem = executar_lotes(
+        serv1=2, cap1=4,  # Fila 1: 2 servidores, capacidade 4
+        serv2=3, cap2=5,  # Fila 2: 3 servidores, capacidade 5
+        ch_min=3.0, ch_max=5.0,    # Intervalo de chegadas
+        at_min=4.0, at_max=5.0,    # Intervalo de atendimento
         sementes=SEMENTES, num_randoms=NUM_RANDOMS,
         warmup_randoms=WARMUP_RANDOMS
     )
-    exibir_resultados_lotes("G/G/1/5 (chegadas [3,5], atendimento [4,5])", lotes1, 5)
-
-    # =====================================================================
-    # Simulação 2: G/G/2/5 - chegadas [3,5], atendimento [4,5]
-    # =====================================================================
-
-    # --- Execução única (semente padrão) ---
-    print(">>> Simulação G/G/2/5 - Execução única <<<\n")
-    resultado2 = executar_simulacao(
-        serv=2, cap=5,
-        ch_min=3.0, ch_max=5.0,
-        at_min=4.0, at_max=5.0,
-        seed=42, num_randoms=NUM_RANDOMS
-    )
-    exibir_resultados("G/G/2/5 (chegadas [3,5], atendimento [4,5])", resultado2)
-
-    # --- Lotes médios (mean batches) com intervalos de confiança ---
-    # 30 replicações com descarte de warm-up
-    print(">>> Simulação G/G/2/5 - Lotes médios (com warm-up) <<<\n")
-    lotes2 = executar_lotes(
-        serv=2, cap=5,
-        ch_min=3.0, ch_max=5.0,
-        at_min=4.0, at_max=5.0,
-        sementes=SEMENTES, num_randoms=NUM_RANDOMS,
-        warmup_randoms=WARMUP_RANDOMS
-    )
-    exibir_resultados_lotes("G/G/2/5 (chegadas [3,5], atendimento [4,5])", lotes2, 5)
+    exibir_resultados_lotes("FILA 1 (Entrada - G/G/2/4)", lotes_tandem, cap=4)
+    
+    print("\n" + "="*70)
+    print("NOTA: Nesta implementação TANDEM:")
+    print("- Clientes chegam externamente e entram em Fila 1")
+    print("- Fila 1 executa processamento e passa cliente para Fila 2 (evento PA)")
+    print("- Fila 2 executa processamento final e cliente sai do sistema (evento SA)")
+    print("- Se Fila 1 ficar cheia, cliente é perdido")
+    print("- Se Fila 2 ficar cheia durante PA, cliente também é perdido")
+    print("="*70 + "\n")
 
 
 if __name__ == "__main__":
