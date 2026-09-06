@@ -430,7 +430,12 @@ def executar_simulacao(serv1, cap1, serv2, cap2, ch_min, ch_max, at_min, at_max,
     for i in range(cap2 + 1):
         assert times2[i] >= 0, f"Tempo negativo no estado {i} da fila 2: {times2[i]}"
 
-    return calcular_resultados()
+    # Retorna resultados de ambas as filas
+    return {
+        "fila1": calcular_resultados_fila(times1, cap1, serv1, "Fila 1"),
+        "fila2": calcular_resultados_fila(times2, cap2, serv2, "Fila 2"),
+        "perdas_totais": perdas,
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -610,9 +615,28 @@ def main():
         at_min=4.0, at_max=5.0,    # Intervalo de atendimento (ambas filas)
         seed=42, num_randoms=NUM_RANDOMS
     )
-    exibir_resultados("FILA 1 (Entrada - G/G/2/4)", resultado_tandem)
-    print("\nFila 1 tem 2 servidores e capacidade 4")
-    print("Fila 2 tem 3 servidores e capacidade 5")
+    
+    # Exibir resultados de FILA 1
+    exibir_resultados("FILA 1 (Entrada - G/G/2/4)", resultado_tandem["fila1"])
+    print()
+    
+    # Exibir resultados de FILA 2
+    exibir_resultados("FILA 2 (Saída - G/G/3/5)", resultado_tandem["fila2"])
+    print()
+    
+    # Análise de Correlação
+    print("=" * 60)
+    print("  ANÁLISE DE CORRELAÇÃO TANDEM")
+    print("=" * 60)
+    print(f"Perdas totais (ambas filas): {resultado_tandem['perdas_totais']}")
+    print(f"Vazão entrada (Fila 1):      {resultado_tandem['fila1']['vazao']:.4f} clientes/min")
+    print(f"Vazão saída (Fila 2):        {resultado_tandem['fila2']['vazao']:.4f} clientes/min")
+    print(f"Diferença de vazão:          {abs(resultado_tandem['fila1']['vazao'] - resultado_tandem['fila2']['vazao']):.6f}")
+    print(f"E[N] Fila 1:                 {resultado_tandem['fila1']['populacao_media']:.4f} clientes")
+    print(f"E[N] Fila 2:                 {resultado_tandem['fila2']['populacao_media']:.4f} clientes")
+    print(f"E[N] Total:                  {resultado_tandem['fila1']['populacao_media'] + resultado_tandem['fila2']['populacao_media']:.4f} clientes")
+    print("=" * 60)
+    print()
     print("Intervalo entre chegadas: [3, 5] minutos")
     print("Intervalo de atendimento: [4, 5] minutos (ambas filas)\n")
 
@@ -628,16 +652,46 @@ def main():
         sementes=SEMENTES, num_randoms=NUM_RANDOMS,
         warmup_randoms=WARMUP_RANDOMS
     )
-    exibir_resultados_lotes("FILA 1 (Entrada - G/G/2/4)", lotes_tandem, cap=4)
     
-    print("\n" + "="*70)
-    print("NOTA: Nesta implementação TANDEM:")
-    print("- Clientes chegam externamente e entram em Fila 1")
-    print("- Fila 1 executa processamento e passa cliente para Fila 2 (evento PA)")
-    print("- Fila 2 executa processamento final e cliente sai do sistema (evento SA)")
-    print("- Se Fila 1 ficar cheia, cliente é perdido")
-    print("- Se Fila 2 ficar cheia durante PA, cliente também é perdido")
-    print("="*70 + "\n")
+    # Exibir resultados de FILA 1
+    exibir_resultados_lotes("FILA 1 (Entrada - G/G/2/4)", [r["fila1"] for r in lotes_tandem], cap=4)
+    print()
+    
+    # Exibir resultados de FILA 2
+    exibir_resultados_lotes("FILA 2 (Saída - G/G/3/5)", [r["fila2"] for r in lotes_tandem], cap=5)
+    print()
+    
+    # Análise de Correlação entre Lotes
+    print("=" * 70)
+    print("  ANÁLISE DE CORRELAÇÃO TANDEM (LOTES MÉDIOS)")
+    print("=" * 70)
+    
+    # Extrair dados de correlação
+    vazoes_fila1 = [r["fila1"]["vazao"] for r in lotes_tandem]
+    vazoes_fila2 = [r["fila2"]["vazao"] for r in lotes_tandem]
+    poblacao_fila1 = [r["fila1"]["populacao_media"] for r in lotes_tandem]
+    poblacao_fila2 = [r["fila2"]["populacao_media"] for r in lotes_tandem]
+    
+    # Calcular médias e correlação
+    media_vazao1, margem_v1, li_v1, ls_v1 = calcular_intervalo_confianca(vazoes_fila1)
+    media_vazao2, margem_v2, li_v2, ls_v2 = calcular_intervalo_confianca(vazoes_fila2)
+    media_pop1, margem_p1, li_p1, ls_p1 = calcular_intervalo_confianca(poblacao_fila1)
+    media_pop2, margem_p2, li_p2, ls_p2 = calcular_intervalo_confianca(poblacao_fila2)
+    
+    # Correlação entre vazões
+    dif_vazoes = [vazoes_fila1[i] - vazoes_fila2[i] for i in range(len(vazoes_fila1))]
+    media_dif_vazao, _, li_dif, ls_dif = calcular_intervalo_confianca(dif_vazoes)
+    
+    print(f"\nVazão Fila 1:         {media_vazao1:.6f}  [{li_v1:.6f} ; {ls_v1:.6f}]")
+    print(f"Vazão Fila 2:         {media_vazao2:.6f}  [{li_v2:.6f} ; {ls_v2:.6f}]")
+    print(f"Diferença de Vazão:   {media_dif_vazao:.6f}  [{li_dif:.6f} ; {ls_dif:.6f}]")
+    print(f"  → Filas sincronizadas: {'SIM ✅' if li_dif <= 0 <= ls_dif else 'NÃO ⚠️'}")
+    
+    print(f"\nPopulação Fila 1:     {media_pop1:.4f}  [{li_p1:.4f} ; {ls_p1:.4f}]")
+    print(f"População Fila 2:     {media_pop2:.4f}  [{li_p2:.4f} ; {ls_p2:.4f}]")
+    print(f"População Total:      {media_pop1 + media_pop2:.4f}  [{li_p1 + li_p2:.4f} ; {ls_p1 + ls_p2:.4f}]")
+    
+    print("=" * 70 + "\n")
 
 
 if __name__ == "__main__":
