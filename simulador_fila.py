@@ -29,15 +29,19 @@ def NextRandom():
 
 # Tipos de evento
 TIPO_CHEGADA = "CHEGADA"
+TIPO_PASSAGEM = "PASSAGEM"  # PA: passagem de cliente da fila 1 para fila 2
 TIPO_SAIDA = "SAIDA"
 
-# Variáveis globais da simulação
+# Variáveis globais da simulação (SISTEMA TANDEM)
 tempo_global = 0.0       # tempo atual da simulação
-fila = 0                 # número de clientes na fila (inclui os em atendimento)
-servidores = 1           # número de servidores
-capacidade = 5           # capacidade máxima da fila (K)
+fila1 = 0                # número de clientes na fila 1 (inclui os em atendimento)
+fila2 = 0                # número de clientes na fila 2 (inclui os em atendimento)
+servidores1 = 1          # número de servidores na fila 1
+servidores2 = 1          # número de servidores na fila 2
+capacidade1 = 5          # capacidade máxima da fila 1 (K1)
+capacidade2 = 5          # capacidade máxima da fila 2 (K2)
 count = 100000           # quantidade de números pseudoaleatórios a usar
-perdas = 0               # clientes perdidos (fila cheia)
+perdas = 0               # clientes perdidos (fila 1 cheia)
 
 # Intervalos de tempo (distribuição uniforme)
 chegada_min = 3.0
@@ -48,21 +52,35 @@ atendimento_max = 5.0
 # Escalonador de eventos (lista de tuplas: (tempo, tipo))
 escalonador = []
 
-# Tempos acumulados por estado da fila
-# times[i] = tempo total em que a fila esteve com i clientes
-times = []
+# Tempos acumulados por estado de cada fila
+# times1[i] = tempo total em que a fila 1 esteve com i clientes
+# times2[i] = tempo total em que a fila 2 esteve com i clientes
+times1 = []
+times2 = []
 
 
-def init_simulacao(serv, cap, ch_min, ch_max, at_min, at_max, seed=42, num_randoms=100000):
-    """Inicializa todas as variáveis globais para uma nova simulação."""
-    global tempo_global, fila, servidores, capacidade, count, perdas
-    global chegada_min, chegada_max, atendimento_min, atendimento_max
-    global escalonador, times, previous
+def init_simulacao(serv1, cap1, serv2, cap2, ch_min, ch_max, at_min, at_max, seed=42, num_randoms=100000):
+    """Inicializa todas as variáveis globais para uma nova simulação TANDEM.
+    
+    Args:
+        serv1, cap1: servidores e capacidade da fila 1
+        serv2, cap2: servidores e capacidade da fila 2
+        ch_min, ch_max: intervalo de tempo entre chegadas
+        at_min, at_max: intervalo de tempo de atendimento
+        seed: semente do gerador pseudoaleatório
+        num_randoms: quantidade de números pseudoaleatórios a usar
+    """
+    global tempo_global, fila1, fila2, servidores1, servidores2, capacidade1, capacidade2
+    global count, perdas, chegada_min, chegada_max, atendimento_min, atendimento_max
+    global escalonador, times1, times2, previous
 
     tempo_global = 0.0
-    fila = 0
-    servidores = serv
-    capacidade = cap
+    fila1 = 0
+    fila2 = 0
+    servidores1 = serv1
+    servidores2 = serv2
+    capacidade1 = cap1
+    capacidade2 = cap2
     count = num_randoms
     perdas = 0
     chegada_min = ch_min
@@ -71,7 +89,8 @@ def init_simulacao(serv, cap, ch_min, ch_max, at_min, at_max, seed=42, num_rando
     atendimento_max = at_max
     previous = seed
     escalonador = []
-    times = [0.0] * (capacidade + 1)
+    times1 = [0.0] * (capacidade1 + 1)
+    times2 = [0.0] * (capacidade2 + 1)
 
 
 def tempo_entre(minimo, maximo):
@@ -106,40 +125,50 @@ def proximo_evento():
 
 def contabiliza_tempo(tempo_evento):
     """
-    Acumula o tempo que a fila permaneceu no estado atual
-    antes de mudar para o próximo estado.
+    Acumula o tempo que cada fila permaneceu no estado atual
+    antes de mudar para o próximo estado. Aplica a contabilização
+    para AMBAS as filas do sistema TANDEM.
     """
     global tempo_global
     dt = tempo_evento - tempo_global
-    if 0 <= fila <= capacidade:
-        times[fila] += dt
+    # Acumula tempo para fila 1 (se o estado é válido)
+    if 0 <= fila1 <= capacidade1:
+        times1[fila1] += dt
+    # Acumula tempo para fila 2 (se o estado é válido)
+    if 0 <= fila2 <= capacidade2:
+        times2[fila2] += dt
     tempo_global = tempo_evento
 
 
 # ---------------------------------------------------------------------------
-# ETAPA 3: Procedimentos CHEGADA e SAIDA
+# ETAPA 3: Procedimentos CHEGADA, PASSAGEM e SAIDA
 # ---------------------------------------------------------------------------
 
 def CHEGADA(tempo_evento):
     """
-    Procedimento que simula a chegada de um cliente na fila.
-    - Contabiliza o tempo no estado atual
-    - Se a fila não estiver cheia, adiciona o cliente
-    - Se houver servidor livre, agenda uma saída (início de atendimento)
+    Procedimento que simula a chegada de um cliente na fila 1 (sistema TANDEM).
+    - Contabiliza o tempo no estado atual de ambas as filas
+    - Se a fila 1 não estiver cheia, adiciona o cliente
+    - Se houver servidor livre na fila 1, agenda uma PASSAGEM (PA) para fila 2
     - Sempre agenda a próxima chegada
+    
+    Nota: No sistema TANDEM, a saída da fila 1 é uma passagem para fila 2,
+    não uma saída do sistema.
     """
-    global fila, perdas
+    global fila1, perdas
 
     contabiliza_tempo(tempo_evento)
 
-    if fila < capacidade:
-        fila += 1
-        # Se houver servidor livre, agenda saída (início de atendimento)
-        if fila <= servidores:
-            tempo_saida = tempo_global + tempo_entre(atendimento_min, atendimento_max)
-            agenda_evento(tempo_saida, TIPO_SAIDA)
+    # Verifica capacidade e variáveis de controle da FILA 1
+    if fila1 < capacidade1:
+        fila1 += 1
+        # Se houver servidor livre na fila 1, agenda passagem (PA) para fila 2
+        # Condição: fila1 <= servidores1
+        if fila1 <= servidores1:
+            tempo_passagem = tempo_global + tempo_entre(atendimento_min, atendimento_max)
+            agenda_evento(tempo_passagem, TIPO_PASSAGEM)
     else:
-        # Fila cheia: cliente perdido
+        # Fila 1 cheia: cliente perdido
         perdas += 1
 
     # Agenda próxima chegada
@@ -150,53 +179,82 @@ def CHEGADA(tempo_evento):
 
 def SAIDA(tempo_evento):
     """
-    Procedimento que simula a saída de um cliente da fila.
+    Procedimento que simula a saída de um cliente da fila 2 (sistema TANDEM).
     - Contabiliza o tempo no estado atual
-    - Remove o cliente da fila
-    - Se ainda houver clientes esperando, agenda nova saída
+    - Remove o cliente da fila 2 (saída do sistema)
+    - Se ainda houver clientes esperando na fila 2, agenda nova saída
+    
+    Utiliza variáveis de controle da FILA 2: fila2, servidores2
     """
-    global fila
+    global fila2
 
     contabiliza_tempo(tempo_evento)
 
-    fila -= 1
+    fila2 -= 1
 
-    # Se ainda há clientes esperando para serem atendidos
-    if fila >= servidores:
+    # Se ainda há clientes esperando para serem atendidos na fila 2
+    # Condição: fila2 >= servidores2
+    if fila2 >= servidores2:
         tempo_saida = tempo_global + tempo_entre(atendimento_min, atendimento_max)
         agenda_evento(tempo_saida, TIPO_SAIDA)
+
+
+# Função PASSAGEM será implementada na próxima etapa
+def PASSAGEM(tempo_evento):
+    """
+    Procedimento que simula a passagem de um cliente da fila 1 para fila 2.
+    - Contabiliza o tempo no estado atual de ambas as filas
+    - Remove o cliente da fila 1 (termina atendimento em fila 1)
+    - Tenta adicionar o cliente à fila 2
+    - Se houver servidor livre em fila 2, agenda saída
+    - Se ainda há clientes em fila 1, agenda nova passagem
+    
+    Utiliza variáveis de controle da FILA 1 (origem): fila1, servidores1, capacidade1
+    Utiliza variáveis de controle da FILA 2 (destino): fila2, servidores2, capacidade2
+    """
+    global fila1, fila2, perdas
+    
+    # Implementação na próxima etapa
+    pass
 
 
 # ---------------------------------------------------------------------------
 # ETAPA 4 e 5: Exibição de resultados
 # ---------------------------------------------------------------------------
 
-def calcular_resultados():
+def calcular_resultados_fila(times_fila, capacidade_fila, num_servidores, nome_fila="Fila"):
     """
-    Calcula e retorna os resultados de uma execução da simulação.
+    Calcula e retorna os resultados de uma execução da simulação para uma fila específica.
+    
+    Args:
+        times_fila: array de tempos acumulados para cada estado da fila
+        capacidade_fila: capacidade máxima da fila (K)
+        num_servidores: número de servidores nesta fila
+        nome_fila: nome descritivo da fila (para logs)
+        
     Retorna um dicionário com probabilidades, tempos e índices de desempenho.
     """
-    tempo_total = sum(times)
+    tempo_total = sum(times_fila)
 
     # Distribuição de probabilidade: tempo acumulado / tempo global
     probs = []
-    for i in range(capacidade + 1):
-        probs.append(times[i] / tempo_total if tempo_total > 0 else 0)
+    for i in range(capacidade_fila + 1):
+        probs.append(times_fila[i] / tempo_total if tempo_total > 0 else 0)
 
     # População média (E[N]): soma de i * P(i) para i = 0..K
-    populacao_media = sum(i * probs[i] for i in range(capacidade + 1))
+    populacao_media = sum(i * probs[i] for i in range(capacidade_fila + 1))
 
     # Utilização: 1 - P(0) para 1 servidor; para c servidores: soma de min(i,c)/c * P(i)
-    if servidores == 1:
+    if num_servidores == 1:
         utilizacao = 1.0 - probs[0]
     else:
-        utilizacao = sum((min(i, servidores) / servidores) * probs[i]
-                         for i in range(capacidade + 1))
+        utilizacao = sum((min(i, num_servidores) / num_servidores) * probs[i]
+                         for i in range(capacidade_fila + 1))
 
     # Vazão (throughput): lambda_efetivo = lambda * (1 - P(K))
     # lambda = 1 / E[tempo_entre_chegadas] = 2 / (chegada_min + chegada_max)
     lambda_chegada = 2.0 / (chegada_min + chegada_max)
-    vazao = lambda_chegada * (1.0 - probs[capacidade])
+    vazao = lambda_chegada * (1.0 - probs[capacidade_fila])
 
     # Tempo de resposta médio (Little: E[N] = vazão * E[W])
     tempo_resposta = populacao_media / vazao if vazao > 0 else 0
@@ -204,13 +262,22 @@ def calcular_resultados():
     return {
         "tempo_total": tempo_total,
         "perdas": perdas,
-        "times": list(times),
+        "times": list(times_fila),
         "probs": probs,
         "populacao_media": populacao_media,
         "utilizacao": utilizacao,
         "vazao": vazao,
         "tempo_resposta": tempo_resposta,
     }
+
+
+# Mantém função anterior para compatibilidade (DEPRECATED)
+def calcular_resultados():
+    """
+    DEPRECATED: Use calcular_resultados_fila() ao invés.
+    Calcula resultados para a fila 2 (saída do sistema TANDEM).
+    """
+    return calcular_resultados_fila(times2, capacidade2, servidores2, "Fila 2")
 
 
 def exibir_resultados(nome_fila, resultados):
@@ -253,18 +320,25 @@ def exibir_resultados(nome_fila, resultados):
 # Função auxiliar: executa uma simulação completa e retorna os resultados
 # ---------------------------------------------------------------------------
 
-def executar_simulacao(serv, cap, ch_min, ch_max, at_min, at_max, seed,
+def executar_simulacao(serv1, cap1, serv2, cap2, ch_min, ch_max, at_min, at_max, seed,
                        num_randoms=100000, warmup_randoms=0):
     """
-    Executa uma simulação completa com os parâmetros dados e retorna os resultados.
+    Executa uma simulação completa TANDEM com os parâmetros dados e retorna os resultados.
     
-    warmup_randoms: quantidade de aleatórios usados na fase de aquecimento (warm-up).
-    Durante o warm-up, a simulação roda normalmente mas os tempos acumulados são
-    descartados ao final dessa fase, eliminando o efeito do estado inicial.
+    Args:
+        serv1, cap1: número de servidores e capacidade da fila 1
+        serv2, cap2: número de servidores e capacidade da fila 2
+        ch_min, ch_max: intervalo de tempo entre chegadas
+        at_min, at_max: intervalo de tempo de atendimento
+        seed: semente do gerador pseudoaleatório
+        num_randoms: quantidade de números pseudoaleatórios a usar
+        warmup_randoms: quantidade de aleatórios usados na fase de aquecimento (warm-up).
+                       Durante o warm-up, a simulação roda normalmente mas os tempos acumulados são
+                       descartados ao final dessa fase, eliminando o efeito do estado inicial.
     """
     global perdas
     total_randoms = num_randoms + warmup_randoms
-    init_simulacao(serv, cap, ch_min, ch_max, at_min, at_max, seed, total_randoms)
+    init_simulacao(serv1, cap1, serv2, cap2, ch_min, ch_max, at_min, at_max, seed, total_randoms)
 
     # Primeira chegada no tempo fixo 3.0 (conforme especificação)
     agenda_evento(3.0, TIPO_CHEGADA)
@@ -273,7 +347,7 @@ def executar_simulacao(serv, cap, ch_min, ch_max, at_min, at_max, seed,
     # WARM-UP (Aquecimento)
     # Descarta os primeiros eventos para eliminar o efeito do estado inicial.
     # A simulação roda normalmente, mas ao final do warm-up os tempos acumulados
-    # são zerados, mantendo apenas o estado atual da fila como ponto de partida
+    # são zerados, mantendo apenas o estado atual de ambas as filas como ponto de partida
     # para a fase de coleta de dados (análise estacionária).
     # ---------------------------------------------------------------------------
     if warmup_randoms > 0:
@@ -285,10 +359,13 @@ def executar_simulacao(serv, cap, ch_min, ch_max, at_min, at_max, seed,
             tempo_evento, tipo_evento = evento
             if tipo_evento == TIPO_CHEGADA:
                 CHEGADA(tempo_evento)
+            elif tipo_evento == TIPO_PASSAGEM:
+                PASSAGEM(tempo_evento)
             elif tipo_evento == TIPO_SAIDA:
                 SAIDA(tempo_evento)
         # Descarta os tempos acumulados durante o warm-up e reseta contadores
-        times[:] = [0.0] * (cap + 1)
+        times1[:] = [0.0] * (cap1 + 1)
+        times2[:] = [0.0] * (cap2 + 1)
         perdas_antes = perdas  # guarda para não contar perdas do warm-up
 
     # Loop principal: fase de coleta de dados (análise estacionária)
@@ -300,6 +377,8 @@ def executar_simulacao(serv, cap, ch_min, ch_max, at_min, at_max, seed,
         tempo_evento, tipo_evento = evento
         if tipo_evento == TIPO_CHEGADA:
             CHEGADA(tempo_evento)
+        elif tipo_evento == TIPO_PASSAGEM:
+            PASSAGEM(tempo_evento)
         elif tipo_evento == TIPO_SAIDA:
             SAIDA(tempo_evento)
 
@@ -312,13 +391,14 @@ def executar_simulacao(serv, cap, ch_min, ch_max, at_min, at_max, seed,
     if warmup_randoms > 0:
         perdas = perdas - perdas_antes
 
-    # Verificação: soma dos tempos acumulados deve ser igual ao tempo de coleta
-    soma_tempos = sum(times)
-    if soma_tempos > 0:
-        diff = abs(soma_tempos - soma_tempos)  # auto-consistência
-        # Verifica que nenhum tempo é negativo (integridade dos dados)
-        for i in range(cap + 1):
-            assert times[i] >= 0, f"Tempo negativo no estado {i}: {times[i]}"
+    # Verificação: soma dos tempos acumulados deve ser consistente
+    soma_tempos1 = sum(times1)
+    soma_tempos2 = sum(times2)
+    # Verifica que nenhum tempo é negativo (integridade dos dados)
+    for i in range(cap1 + 1):
+        assert times1[i] >= 0, f"Tempo negativo no estado {i} da fila 1: {times1[i]}"
+    for i in range(cap2 + 1):
+        assert times2[i] >= 0, f"Tempo negativo no estado {i} da fila 2: {times2[i]}"
 
     return calcular_resultados()
 
@@ -332,16 +412,25 @@ def executar_simulacao(serv, cap, ch_min, ch_max, at_min, at_max, seed,
 # com resultados discrepantes.
 # ---------------------------------------------------------------------------
 
-def executar_lotes(serv, cap, ch_min, ch_max, at_min, at_max,
+def executar_lotes(serv1, cap1, serv2, cap2, ch_min, ch_max, at_min, at_max,
                    sementes, num_randoms=100000, warmup_randoms=0):
     """
-    Executa a simulação várias vezes (uma por semente) e coleta
+    Executa a simulação TANDEM várias vezes (uma por semente) e coleta
     os resultados de cada lote para análise estatística.
     O warm-up é aplicado em cada lote para descartar o período transiente.
+    
+    Args:
+        serv1, cap1: número de servidores e capacidade da fila 1
+        serv2, cap2: número de servidores e capacidade da fila 2
+        ch_min, ch_max: intervalo de tempo entre chegadas
+        at_min, at_max: intervalo de tempo de atendimento
+        sementes: lista de sementes para cada lote
+        num_randoms: quantidade de números pseudoaleatórios por lote
+        warmup_randoms: quantidade de aleatórios usados no warm-up
     """
     resultados_lotes = []
     for semente in sementes:
-        resultado = executar_simulacao(serv, cap, ch_min, ch_max,
+        resultado = executar_simulacao(serv1, cap1, serv2, cap2, ch_min, ch_max,
                                        at_min, at_max, semente,
                                        num_randoms, warmup_randoms)
         resultados_lotes.append(resultado)
