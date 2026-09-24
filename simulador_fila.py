@@ -198,14 +198,23 @@ def _entra_na_fila(fila_idx):
 
 def _decide_roteamento(fila):
     """
-    Sorteia, usando um número pseudoaleatório, o destino de um cliente que
-    acabou de ser atendido em `fila`. Retorna o índice da fila de destino,
-    ou None caso o cliente saia do sistema. Quando a fila tem um único
-    destino com probabilidade 1.0 (caso das filas em tandem), o resultado
-    é sempre aquele destino, sem depender do valor sorteado.
+    Decide o destino de um cliente que acabou de ser atendido em `fila`.
+    Retorna o índice da fila de destino, ou None caso o cliente saia do
+    sistema.
+
+    Só consome um número pseudoaleatório quando a decisão é de fato
+    probabilística (mais de um desfecho possível). Quando a fila tem um
+    único destino com probabilidade 1.0 (caso das filas em tandem, por
+    exemplo), o resultado já está determinado e NENHUM aleatório é gasto —
+    do contrário, cada atendimento concluído "roubaria" um número do
+    orçamento de aleatórios da simulação sem corresponder a nenhuma decisão
+    real, encurtando artificialmente o tempo total simulado.
     """
     if not fila.roteamento:
         return None
+    if len(fila.roteamento) == 1 and fila.roteamento[0][0] >= 1.0:
+        return fila.roteamento[0][1]
+
     r = NextRandom()
     acumulado = 0.0
     for probabilidade, destino in fila.roteamento:
