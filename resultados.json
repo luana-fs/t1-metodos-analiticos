@@ -1,0 +1,133 @@
+[
+  {
+    "semente": 42,
+    "gerador": "java.util.Random.nextDouble",
+    "aleatorios_usados": 100000,
+    "limite": 100000,
+    "tempo_global": 50665.746894318545,
+    "chegadas_externas": 16844,
+    "motivo_parada": "limite de aleatorios",
+    "filas": {
+      "Q1": {
+        "perdas": 0,
+        "estados": [
+          {
+            "estado": 0,
+            "tempo": 20307.03938912516,
+            "probabilidade": 0.4008041060064252
+          },
+          {
+            "estado": 1,
+            "tempo": 26473.429296830567,
+            "probabilidade": 0.5225113793753071
+          },
+          {
+            "estado": 2,
+            "tempo": 3718.4361544505937,
+            "probabilidade": 0.07339151956462255
+          },
+          {
+            "estado": 3,
+            "tempo": 166.84205391222406,
+            "probabilidade": 0.0032929950536450705
+          }
+        ]
+      },
+      "Q2": {
+        "perdas": 8,
+        "estados": [
+          {
+            "estado": 0,
+            "tempo": 12321.316388240344,
+            "probabilidade": 0.2431882907783998
+          },
+          {
+            "estado": 1,
+            "tempo": 21098.171776075797,
+            "probabilidade": 0.41641884447264826
+          },
+          {
+            "estado": 2,
+            "tempo": 12875.927814564775,
+            "probabilidade": 0.2541347676453306
+          },
+          {
+            "estado": 3,
+            "tempo": 3777.860644415272,
+            "probabilidade": 0.07456439263187703
+          },
+          {
+            "estado": 4,
+            "tempo": 530.1716130077075,
+            "probabilidade": 0.010464103373696812
+          },
+          {
+            "estado": 5,
+            "tempo": 62.29865801464757,
+            "probabilidade": 0.0012296010980474364
+          }
+        ]
+      },
+      "Q3": {
+        "perdas": 11505,
+        "estados": [
+          {
+            "estado": 0,
+            "tempo": 3.727563680032868,
+            "probabilidade": 7.357167136621966e-05
+          },
+          {
+            "estado": 1,
+            "tempo": 3.3044322152813956,
+            "probabilidade": 6.522024084977895e-05
+          },
+          {
+            "estado": 2,
+            "tempo": 8.960772158750821,
+            "probabilidade": 0.0001768605558592021
+          },
+          {
+            "estado": 3,
+            "tempo": 9.482472905856529,
+            "probabilidade": 0.0001871574680550077
+          },
+          {
+            "estado": 4,
+            "tempo": 1.7219787452960844,
+            "probabilidade": 3.398703958490702e-05
+          },
+          {
+            "estado": 5,
+            "tempo": 4.576768681688229,
+            "probabilidade": 9.033260066677216e-05
+          },
+          {
+            "estado": 6,
+            "tempo": 7.2106316505936405,
+            "probabilidade": 0.00014231768191701546
+          },
+          {
+            "estado": 7,
+            "tempo": 93.29412511846931,
+            "probabilidade": 0.0018413648438474108
+          },
+          {
+            "estado": 8,
+            "tempo": 2923.413085399964,
+            "probabilidade": 0.05769998992608918
+          },
+          {
+            "estado": 9,
+            "tempo": 16035.039010113263,
+            "probabilidade": 0.31648677840593264
+          },
+          {
+            "estado": 10,
+            "tempo": 31575.01605364935,
+            "probabilidade": 0.6232024195658319
+          }
+        ]
+      }
+    }
+  }
+]
